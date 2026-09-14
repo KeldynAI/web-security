@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/keldynai/web-security/v1/schemas/web-security-ignore.schema.json",
+  "title": "keldynai/web-security ignore file",
+  "description": "Justified suppressions for keldynai/web-security. Every entry must name a scanner and carry a written reason; an expiry date is optional but recommended. This schema is provided for editor autocompletion and is not the enforcement mechanism: src/ignores.mjs applies additional rules (minimum reason length, placeholder-reason rejection, expiry enforcement, duplicate detection) that JSON Schema cannot express.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "ignores"],
+  "properties": {
+    "version": {
+      "description": "Ignore-file format version.",
+      "const": 1
+    },
+    "ignores": {
+      "description": "List of justified suppressions.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/ignore" }
+    }
+  },
+  "$defs": {
+    "ignore": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "scanner", "reason"],
+      "properties": {
+        "id": {
+          "description": "Finding identifier: a CVE, a GHSA, an npm advisory id (NPM-1234), a Trivy check id (AVD-DS-0002), a Semgrep rule id, or a Gitleaks rule id.",
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 201,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@+-]+$"
+        },
+        "scanner": {
+          "description": "Scanner whose finding is suppressed. 'dependency' covers npm, yarn and pnpm; 'any' covers every scanner.",
+          "type": "string",
+          "enum": ["sast", "trivy", "npm", "yarn", "pnpm", "secrets", "dependency", "any"]
+        },
+        "reason": {
+          "description": "Why this finding is acceptable in this application. Placeholder text such as 'n/a' or 'false positive' is rejected.",
+          "type": "string",
+          "minLength": 15
+        },
+        "expires": {
+          "description": "Date (YYYY-MM-DD) after which this suppression stops applying and the run fails until it is re-reviewed.",
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "package": {
+          "description": "Restrict the suppression to one package name.",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9@][A-Za-z0-9._/@-]*$"
+        },
+        "paths": {
+          "description": "Restrict the suppression to these repository-relative paths. Supports '*' (one path segment) and '**' (any depth).",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._*][A-Za-z0-9._*/-]*$"
+          }
+        }
+      }
+    }
+  }
+}

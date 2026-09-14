@@ -1,0 +1,18 @@
+version: 2
+
+# The scanners themselves are pinned in tools.json and updated by hand, because
+# each bump needs its SHA-256 checksums re-copied from the upstream release and
+# a check that the output format has not changed. Dependabot cannot do that, so
+# it only watches the Actions used by this repository's own workflows.
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "ci"
+    labels:
+      - dependencies
+    groups:
+      actions:
+        patterns: ["*"]

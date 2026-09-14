@@ -1,0 +1,191 @@
+name: Test
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  # Scanner versions, rule packs and vulnerability databases change upstream,
+  # so the self-scan also runs on a schedule to catch breakage no commit caused.
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Third-party Actions are pinned to immutable commit SHAs with the release
+# annotated in a comment -- the same standard this Action asks of its consumers.
+# Expression values are passed to shell steps through `env:` and referenced as
+# quoted variables, never interpolated into `run:` text.
+jobs:
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: "20"
+
+      - name: Run tests
+        run: node --test "tests/**/*.test.mjs"
+
+  node-matrix:
+    name: Unit tests (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["22", "24"]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: ${{ matrix.node }}
+
+      - run: node --test "tests/**/*.test.mjs"
+
+  shell:
+    name: Shell lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Check syntax
+        run: |
+          set -euo pipefail
+          for script in scripts/*.sh scripts/lib/*.sh tests/e2e/*.sh; do
+            bash -n "$script"
+          done
+
+      - name: shellcheck
+        # Pre-installed on ubuntu-latest runners.
+        run: |
+          shellcheck --severity=style --external-sources \
+            scripts/*.sh scripts/lib/*.sh tests/e2e/*.sh
+
+  metadata:
+    name: Action metadata
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Validate action.yml, JSON files and examples
+        run: python3 tests/check-metadata.py
+
+  self-scan:
+    name: Self scan (dogfood)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      # The Action scans itself from the working tree rather than from a `@v1`
+      # tag, so this works before the first release exists and always exercises
+      # the code in the pull request.
+      - id: scan
+        uses: ./
+        with:
+          severity: high
+          require-ignore-expiry: true
+
+      - name: Check the documented outputs are present
+        if: always()
+        env:
+          RESULT: ${{ steps.scan.outputs.result }}
+          STATUS: ${{ steps.scan.outputs.status }}
+          FINDINGS: ${{ steps.scan.outputs.findings }}
+          IGNORED: ${{ steps.scan.outputs.ignored-findings }}
+          REPORT: ${{ steps.scan.outputs.report }}
+        run: |
+          set -euo pipefail
+          printf 'result=%s status=%s findings=%s ignored=%s\n' \
+            "$RESULT" "$STATUS" "$FINDINGS" "$IGNORED"
+          test -n "$REPORT"
+          test -f "$REPORT"
+          node -e 'JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"))' "$REPORT"
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
+        with:
+          name: self-scan-report
+          path: .web-security/
+          retention-days: 7
+
+  behaviour:
+    name: End-to-end behaviour
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      # A repository with known-bad content must FAIL, and the same repository
+      # with justified suppressions must PASS. Together these exercise the whole
+      # pipeline -- real scanners, normalisation, suppression, verdict.
+      - name: Build a deliberately vulnerable fixture
+        run: bash tests/e2e/build-fixture.sh .ci-fixture
+
+      - name: Scan the vulnerable fixture (expected to fail)
+        id: bad
+        continue-on-error: true
+        uses: ./
+        with:
+          path: .ci-fixture
+          ignore-file: .ci-fixture/no-ignores.yml
+
+      - name: Assert every scanner found its planted problem
+        env:
+          OUTCOME: ${{ steps.bad.outcome }}
+          STATUS: ${{ steps.bad.outputs.status }}
+          FINDINGS: ${{ steps.bad.outputs.findings }}
+          IGNORED: ${{ steps.bad.outputs.ignored-findings }}
+          REPORT: ${{ steps.bad.outputs.report }}
+        run: node tests/e2e/assert-scan-failed.mjs
+
+      # The suppressions are derived from the first run rather than hard-coded,
+      # so a newly published advisory or a new rule does not break the test.
+      - name: Derive justified suppressions from the report
+        env:
+          REPORT: ${{ steps.bad.outputs.report }}
+        run: node tests/e2e/generate-ignores.mjs "$REPORT" .ci-fixture/justified-ignores.yml
+
+      - name: Scan the same fixture with justified suppressions (expected to pass)
+        id: good
+        uses: ./
+        with:
+          path: .ci-fixture
+          ignore-file: .ci-fixture/justified-ignores.yml
+
+      - name: Assert the suppressions were applied and reported
+        env:
+          STATUS: ${{ steps.good.outputs.status }}
+          FINDINGS: ${{ steps.good.outputs.findings }}
+          IGNORED: ${{ steps.good.outputs.ignored-findings }}
+          REPORT: ${{ steps.good.outputs.report }}
+        run: node tests/e2e/assert-scan-passed.mjs
+
+      - name: Scan with an unjustified ignore entry (expected to be rejected)
+        id: unjustified
+        continue-on-error: true
+        uses: ./
+        with:
+          path: .ci-fixture
+          ignore-file: .ci-fixture/unjustified-ignores.yml
+
+      - name: Assert the unjustified ignore file was rejected
+        env:
+          OUTCOME: ${{ steps.unjustified.outcome }}
+        run: |
+          set -euo pipefail
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "::error::an ignore entry without a justification must fail the run"
+            exit 1
+          fi
+          echo "unjustified ignore file rejected, as expected"
+
+      - name: Remove the fixture
+        if: always()
+        run: rm -rf .ci-fixture
