@@ -1,0 +1,49 @@
+# Example suppression file for keldynai/web-security.
+#
+# Copy to .github/web-security-ignore.yml (or .web-security-ignore.yml) and
+# edit. Every entry needs an id, a scanner and a written reason; an expiry date
+# is optional but strongly recommended, because an expired entry stops
+# suppressing and fails the run until somebody re-reviews it.
+#
+# Validation rejects an entry that is missing a reason, has a reason shorter
+# than 15 characters, uses a placeholder reason such as "n/a" or "false
+# positive", names an unknown scanner, has an invalid or past expiry date, or
+# duplicates another entry.
+
+version: 1
+
+ignores:
+  # A dependency vulnerability that both Trivy and npm audit report. Using the
+  # "dependency" group covers npm, Yarn and pnpm in one entry; use "any" to
+  # also cover Trivy's copy of the same advisory.
+  - id: "GHSA-abcd-1234-5678"
+    scanner: any
+    package: "lodash"
+    reason: "Only reachable through the package's optional CLI, which this service never invokes. Upgrade is blocked on the 4.x migration tracked in PLAT-812."
+    expires: "2027-03-31"
+
+  # A Trivy finding with no published fix, scoped to one package so an
+  # unrelated future advisory for the same package is not silenced too.
+  - id: "CVE-2026-1234"
+    scanner: trivy
+    package: "libexample"
+    reason: "No fixed version published upstream. The affected parser is not exposed to untrusted input; reviewed with the platform team on 2026-05-02."
+    expires: "2027-01-31"
+
+  # A SAST rule that is a false positive in one specific place. Suppress the
+  # narrow path rather than the rule across the whole repository.
+  - id: "javascript.lang.security.detect-eval-with-expression.detect-eval-with-expression"
+    scanner: sast
+    paths:
+      - "tools/codegen/**/*.mjs"
+    reason: "Build-time code generator that evaluates templates checked into this repository; input never comes from a request or a user."
+    expires: "2027-06-30"
+
+  # A secret-scanner match on test data. Prefer fixing the fixture, but when
+  # the value genuinely is not a credential this documents the decision.
+  - id: "generic-api-key"
+    scanner: secrets
+    paths:
+      - "tests/fixtures/"
+    reason: "Randomly generated string used by the HTTP client test suite; it is not a credential for any real system."
+    expires: "2027-02-28"

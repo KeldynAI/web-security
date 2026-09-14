@@ -1,0 +1,53 @@
+{
+  "$comment": [
+    "Single source of truth for the scanner versions this Action installs.",
+    "Security scanners are part of the supply chain, so every release-archive",
+    "download is pinned to an exact version AND verified against the SHA-256",
+    "checksum published in the upstream release. Updating a scanner means",
+    "changing the version and the checksums here, nowhere else.",
+    "Checksums are copied from the upstream *_checksums.txt release asset."
+  ],
+  "trivy": {
+    "version": "0.74.0",
+    "binary": "trivy",
+    "urlTemplate": "https://github.com/aquasecurity/trivy/releases/download/v{version}/{file}",
+    "checksumsUrl": "https://github.com/aquasecurity/trivy/releases/download/v0.74.0/trivy_0.74.0_checksums.txt",
+    "assets": {
+      "linux-x64": {
+        "file": "trivy_0.74.0_Linux-64bit.tar.gz",
+        "sha256": "2ae6fe3ee734b7fdf11335663e18c75ea12dccc76062f09f164a3b0f8be4371a"
+      },
+      "linux-arm64": {
+        "file": "trivy_0.74.0_Linux-ARM64.tar.gz",
+        "sha256": "b94ce1976bbf3c15b514b605ee88be7c6d94a29be2302847ff01cb794d47aad5"
+      }
+    }
+  },
+  "gitleaks": {
+    "version": "8.30.1",
+    "binary": "gitleaks",
+    "urlTemplate": "https://github.com/gitleaks/gitleaks/releases/download/v{version}/{file}",
+    "checksumsUrl": "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_checksums.txt",
+    "assets": {
+      "linux-x64": {
+        "file": "gitleaks_8.30.1_linux_x64.tar.gz",
+        "sha256": "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+      },
+      "linux-arm64": {
+        "file": "gitleaks_8.30.1_linux_arm64.tar.gz",
+        "sha256": "e4a487ee7ccd7d3a7f7ec08657610aa3606637dab924210b3aee62570fb4b080"
+      }
+    }
+  },
+  "semgrep": {
+    "$comment": [
+      "Semgrep ships as a Python package only (no standalone release archive),",
+      "so it is installed from PyPI at an exact pinned version into a private",
+      "virtualenv. Nothing is installed into the consumer's project."
+    ],
+    "version": "1.177.0",
+    "binary": "semgrep",
+    "installer": "pypi",
+    "package": "semgrep==1.177.0"
+  }
+}

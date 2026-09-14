@@ -1,0 +1,58 @@
+# Monorepo setups.
+#
+# The default (`monorepo: true`) already finds every lockfile recursively and
+# audits each package tree once, so a single job is usually enough:
+#
+#   - uses: keldynai/web-security@v1
+#
+# Use the matrix below only when you want separate checks per package -- one
+# red check per team, different thresholds, or path filters so a frontend
+# change does not rescan the backend.
+name: Web Security (monorepo)
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  # One scan covering everything. SAST, Trivy and secret scanning always run
+  # across the whole repository regardless of this setting.
+  whole-repo:
+    name: Repository scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: keldynai/web-security@v1
+
+  # Per-package scans with independent settings. `monorepo: false` keeps each
+  # job to the package at `path`, so the audits do not overlap.
+  per-package:
+    name: ${{ matrix.package.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - name: frontend
+            path: apps/frontend
+            severity: high
+          - name: backend
+            path: services/api
+            # A public API is worth a stricter threshold than the docs site.
+            severity: medium
+          - name: docs
+            path: docs
+            severity: critical
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: keldynai/web-security@v1
+        with:
+          path: ${{ matrix.package.path }}
+          severity: ${{ matrix.package.severity }}
+          monorepo: false
+          # Each job writes its own report so the artifacts do not collide.
+          report-dir: .web-security/${{ matrix.package.name }}

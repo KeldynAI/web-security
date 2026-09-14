@@ -1,0 +1,24 @@
+# Minimal pull-request setup.
+#
+# Copy to .github/workflows/web-security.yml. Everything else is autodetected:
+# package managers from lockfiles, infrastructure files, and the ignore file at
+# .github/web-security-ignore.yml if one exists.
+name: Web Security
+
+on:
+  pull_request:
+
+# Least privilege: the Action needs no write access, no secrets and no
+# security-events permission, so this works for pull requests from forks.
+permissions:
+  contents: read
+
+jobs:
+  security:
+    name: Security scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: keldynai/web-security@v1

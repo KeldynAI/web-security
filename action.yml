@@ -1,0 +1,235 @@
+name: "Web Security"
+description: "SAST, dependency, vulnerability, secret and configuration scanning for web projects."
+author: "keldynai"
+
+branding:
+  icon: "shield"
+  color: "purple"
+
+# Design note: this is a composite Action rather than a JavaScript Action.
+#
+# The work is mostly "install a pinned binary, run it, keep its output", which
+# is what shell does well, while the logic that benefits from a real language
+# (ignore-file validation, normalising five audit formats, reporting) lives in
+# dependency-free Node scripts under src/. A JavaScript Action would have
+# required either a committed node_modules/dist bundle — a supply-chain
+# liability in a security tool — or `npm install` at scan time.
+#
+# The steps are split so that scanners only record outcomes and a single later
+# step decides pass/fail. That keeps PASS / FAIL / ERROR / SKIPPED distinct and
+# guarantees the outputs below are populated even on a failing run.
+
+inputs:
+  path:
+    description: "Directory to scan, relative to the repository root."
+    required: false
+    default: "."
+
+  severity:
+    description: >-
+      Minimum severity that fails the run: critical, high, medium or low.
+      Also derives the Trivy severity list and the npm/Yarn audit level unless
+      those are set explicitly.
+    required: false
+    default: "high"
+
+  sast:
+    description: "Run static analysis (Semgrep Community Edition)."
+    required: false
+    default: "true"
+
+  trivy:
+    description: "Run Trivy (dependency vulnerabilities and IaC misconfiguration)."
+    required: false
+    default: "true"
+
+  dependency-audit:
+    description: "Run the package manager's audit (npm, Yarn or pnpm) for every detected lockfile."
+    required: false
+    default: "true"
+
+  secret-scan:
+    description: "Run secret scanning (Gitleaks)."
+    required: false
+    default: "true"
+
+  ignore-file:
+    description: >-
+      Path to the justified-suppression file. When unset, .github/web-security-ignore.yml
+      and .web-security-ignore.yml are used if present.
+    required: false
+    default: ""
+
+  monorepo:
+    description: >-
+      Detect lockfiles recursively and audit every package tree found.
+      Set to false to audit only the project at `path`.
+    required: false
+    default: "true"
+
+  trivy-severity:
+    description: >-
+      Explicit Trivy severity list, for example "HIGH,CRITICAL".
+      Defaults to the list derived from `severity` (HIGH,CRITICAL by default).
+    required: false
+    default: ""
+
+  trivy-scanners:
+    description: >-
+      Trivy scanners to enable: vuln, misconfig, secret, license.
+      Secrets are covered by Gitleaks by default, so `secret` is not enabled here.
+    required: false
+    default: "vuln,misconfig"
+
+  audit-level:
+    description: >-
+      npm/Yarn audit level (info, low, moderate, high, critical).
+      Defaults to the level derived from `severity`.
+    required: false
+    default: ""
+
+  sast-config:
+    description: >-
+      Additional Semgrep configurations, comma separated. Registry packs such as
+      "p/owasp-top-ten" or repository-relative rule files.
+    required: false
+    default: ""
+
+  report-dir:
+    description: "Directory for report.json, summary.md and raw scanner output."
+    required: false
+    default: ".web-security"
+
+  require-ignore-expiry:
+    description: "Reject ignore entries that have no expiry date."
+    required: false
+    default: "false"
+
+  fail-on-error:
+    description: >-
+      Fail the run when a scanner cannot run. Leave enabled: disabling it means
+      a broken scanner is reported but does not fail the build.
+    required: false
+    default: "true"
+
+outputs:
+  result:
+    description: "Overall verdict: pass or fail (a scanner error counts as fail)."
+    value: ${{ steps.report.outputs.result }}
+
+  status:
+    description: "Detailed verdict: pass, fail or error."
+    value: ${{ steps.report.outputs.status }}
+
+  findings:
+    description: "Number of actionable findings at or above the severity threshold."
+    value: ${{ steps.report.outputs.findings }}
+
+  ignored-findings:
+    description: "Number of findings suppressed by a justified ignore entry."
+    value: ${{ steps.report.outputs.ignored-findings }}
+
+  report:
+    description: "Repository-relative path to the normalised JSON report."
+    value: ${{ steps.report.outputs.report }}
+
+runs:
+  using: composite
+
+  steps:
+    # ----------------------------------------------------------------------
+    # 1. Validate inputs, discover the repository, validate the ignore file.
+    #    Inputs are passed as environment variables and never interpolated
+    #    into a shell command.
+    # ----------------------------------------------------------------------
+    - id: preflight
+      shell: bash
+      env:
+        WEB_SECURITY_INPUT_PATH: ${{ inputs.path }}
+        WEB_SECURITY_INPUT_SEVERITY: ${{ inputs.severity }}
+        WEB_SECURITY_INPUT_SAST: ${{ inputs.sast }}
+        WEB_SECURITY_INPUT_TRIVY: ${{ inputs.trivy }}
+        WEB_SECURITY_INPUT_DEPENDENCY_AUDIT: ${{ inputs.dependency-audit }}
+        WEB_SECURITY_INPUT_SECRET_SCAN: ${{ inputs.secret-scan }}
+        WEB_SECURITY_INPUT_IGNORE_FILE: ${{ inputs.ignore-file }}
+        WEB_SECURITY_INPUT_MONOREPO: ${{ inputs.monorepo }}
+        WEB_SECURITY_INPUT_TRIVY_SEVERITY: ${{ inputs.trivy-severity }}
+        WEB_SECURITY_INPUT_TRIVY_SCANNERS: ${{ inputs.trivy-scanners }}
+        WEB_SECURITY_INPUT_AUDIT_LEVEL: ${{ inputs.audit-level }}
+        WEB_SECURITY_INPUT_SAST_CONFIG: ${{ inputs.sast-config }}
+        WEB_SECURITY_INPUT_REPORT_DIR: ${{ inputs.report-dir }}
+        WEB_SECURITY_INPUT_REQUIRE_IGNORE_EXPIRY: ${{ inputs.require-ignore-expiry }}
+        WEB_SECURITY_INPUT_FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
+      run: "$GITHUB_ACTION_PATH/scripts/preflight.sh"
+
+    # ----------------------------------------------------------------------
+    # 2. Install only the scanners that are enabled, pinned and checksummed.
+    # ----------------------------------------------------------------------
+    - id: install
+      shell: bash
+      env:
+        WEB_SECURITY_STATE: ${{ steps.preflight.outputs.state-dir }}
+        WEB_SECURITY_NEED_SAST: ${{ steps.preflight.outputs.run-sast }}
+        WEB_SECURITY_NEED_TRIVY: ${{ steps.preflight.outputs.run-trivy }}
+        WEB_SECURITY_NEED_SECRETS: ${{ steps.preflight.outputs.run-secrets }}
+      run: "$GITHUB_ACTION_PATH/scripts/install-tools.sh"
+
+    # ----------------------------------------------------------------------
+    # 3. Scanners. Each records its own outcome and never fails the step for
+    #    findings, so every enabled scanner runs on every job.
+    # ----------------------------------------------------------------------
+    - id: sast
+      if: ${{ steps.preflight.outputs.run-sast == 'true' }}
+      shell: bash
+      env:
+        WEB_SECURITY_STATE: ${{ steps.preflight.outputs.state-dir }}
+        WEB_SECURITY_SCAN_PATH: ${{ steps.preflight.outputs.scan-path }}
+        WEB_SECURITY_SAST_CONFIG: ${{ steps.preflight.outputs.sast-config }}
+      run: "$GITHUB_ACTION_PATH/scripts/run-sast.sh"
+
+    - id: trivy
+      if: ${{ steps.preflight.outputs.run-trivy == 'true' }}
+      shell: bash
+      env:
+        WEB_SECURITY_STATE: ${{ steps.preflight.outputs.state-dir }}
+        WEB_SECURITY_SCAN_PATH: ${{ steps.preflight.outputs.scan-path }}
+        WEB_SECURITY_TRIVY_SEVERITY: ${{ steps.preflight.outputs.trivy-severity }}
+        WEB_SECURITY_TRIVY_SCANNERS: ${{ steps.preflight.outputs.trivy-scanners }}
+      run: "$GITHUB_ACTION_PATH/scripts/run-trivy.sh"
+
+    - id: dependency-audit
+      if: ${{ steps.preflight.outputs.run-dependency == 'true' }}
+      shell: bash
+      env:
+        WEB_SECURITY_STATE: ${{ steps.preflight.outputs.state-dir }}
+        WEB_SECURITY_SCAN_PATH: ${{ steps.preflight.outputs.scan-path }}
+        WEB_SECURITY_AUDIT_LEVEL: ${{ steps.preflight.outputs.audit-level }}
+      run: "$GITHUB_ACTION_PATH/scripts/run-dependency-audit.sh"
+
+    - id: secrets
+      if: ${{ steps.preflight.outputs.run-secrets == 'true' }}
+      shell: bash
+      env:
+        WEB_SECURITY_STATE: ${{ steps.preflight.outputs.state-dir }}
+        WEB_SECURITY_SCAN_PATH: ${{ steps.preflight.outputs.scan-path }}
+      run: "$GITHUB_ACTION_PATH/scripts/run-secrets.sh"
+
+    # ----------------------------------------------------------------------
+    # 4. Aggregate, then enforce.
+    #    `always()` ensures a report is produced even if a scanner step died
+    #    unexpectedly: the aggregation step reports a missing scanner as ERROR
+    #    rather than letting it pass unnoticed.
+    # ----------------------------------------------------------------------
+    - id: report
+      if: ${{ always() && steps.preflight.outputs.state-dir != '' }}
+      shell: bash
+      env:
+        WEB_SECURITY_STATE: ${{ steps.preflight.outputs.state-dir }}
+      run: "$GITHUB_ACTION_PATH/scripts/aggregate.sh"
+
+    - id: enforce
+      if: ${{ always() && steps.report.outputs.status != '' }}
+      shell: bash
+      env:
+        WEB_SECURITY_STATE: ${{ steps.preflight.outputs.state-dir }}
+      run: "$GITHUB_ACTION_PATH/scripts/enforce.sh"

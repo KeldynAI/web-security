@@ -1,0 +1,18 @@
+# Output written by the Action when it scans this repository.
+.web-security/
+
+# Fixture built by the end-to-end workflow job.
+.ci-fixture/
+
+# There are deliberately no runtime dependencies, but a contributor running
+# `npm install` by accident should not be able to commit one.
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Local scratch state from running the scripts outside GitHub Actions.
+.web-security-state/
+
+.DS_Store
+*.log

@@ -1,0 +1,63 @@
+# A fully configured setup: explicit thresholds, a pinned Action SHA, the
+# normalised report kept as an artifact, and the summary counts echoed.
+name: Web Security
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  # Advisory databases change without your code changing, so a scheduled run
+  # catches newly published vulnerabilities in dependencies you already have.
+  schedule:
+    - cron: "0 7 * * 1"
+
+permissions:
+  contents: read
+
+# One scan for the whole repository. See monorepo.yml for the per-package
+# alternative.
+jobs:
+  security:
+    name: Security scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: scan
+        # Security-conscious consumers pin to a full commit SHA and let
+        # Dependabot move it, instead of tracking the mutable @v1 tag.
+        uses: keldynai/web-security@v1
+        with:
+          path: "."
+          severity: high
+          trivy-severity: HIGH,CRITICAL
+          ignore-file: .github/web-security-ignore.yml
+          monorepo: true
+          # Every suppression must carry an expiry date, so no exception
+          # becomes permanent by accident.
+          require-ignore-expiry: true
+
+      # The report is written before the Action fails, so `always()` keeps it
+      # available for the runs you actually care about.
+      - name: Upload the security report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-security-report
+          path: .web-security/
+          retention-days: 14
+
+      - name: Show the counts
+        if: always()
+        env:
+          RESULT: ${{ steps.scan.outputs.result }}
+          FINDINGS: ${{ steps.scan.outputs.findings }}
+          IGNORED: ${{ steps.scan.outputs.ignored-findings }}
+        run: |
+          # Expression values are passed through env and quoted, never
+          # interpolated into the script itself.
+          echo "result: $RESULT"
+          echo "actionable findings: $FINDINGS"
+          echo "ignored with justification: $IGNORED"
