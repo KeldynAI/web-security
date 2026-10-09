@@ -117,7 +117,9 @@ inputs:
     description: >-
       Keldyn team API key. When set, the full report is posted and Keldyn
       stores the scan. Pass the repository secret KELDYN_API_KEY from the
-      calling workflow. The key needs grc.write.
+      calling workflow. When you create the key, turn on Submit automated
+      evidence (evidence.submit). A key with Edit GRC records (grc.write) can
+      submit scans too.
     required: false
     default: ""
 

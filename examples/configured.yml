@@ -43,7 +43,8 @@ jobs:
           # becomes permanent by accident.
           require-ignore-expiry: true
           # Optional. Omit the input and the scan stays in GitHub.
-          # The key needs grc.write. See the Review Bot docs.
+          # Create the team API key with Submit automated evidence (evidence.submit).
+          # A key with Edit GRC records (grc.write) can submit scans too.
           keldyn-api-key: ${{ secrets.KELDYN_API_KEY }}
 
       # The report is written before the Action fails, so `always()` keeps it

@@ -45,6 +45,12 @@ jobs:
 That is the whole setup. Everything is autodetected. The daily schedule runs
 only from the default branch, and GitHub may start it later than 07:00 UTC.
 
+`keldyn-api-key` is optional. Without it, the scan stays in GitHub. To submit
+scans to a Keldyn workspace, create a team API key under **User settings →
+Team → API Keys** and turn on **Submit automated evidence** (`evidence.submit`).
+A key that already has **Edit GRC records** (`grc.write`) can submit scans too.
+Save the key as the repository secret `KELDYN_API_KEY`.
+
 ## Every commit
 
 Scan each push, not only pull requests:
@@ -197,7 +203,7 @@ Review** check you can require before merge.
 | | This Action | Keldyn Review Bot |
 | --- | --- | --- |
 | Question | Are there known vulnerabilities, committed secrets, insecure code patterns, or infrastructure misconfiguration? | Would merging this pull request cause a code-level control to fail? |
-| Needs | A workflow file. No GitHub Advanced Security. An API key is optional and only used to create Keldyn findings. | A Keldyn organization. Connect it under **Integrations → Keldyn Review Bot**. |
+| Needs | A workflow file. No GitHub Advanced Security. An API key is optional and only used to create Keldyn findings. Create it under **User settings → Team → API Keys** and turn on **Submit automated evidence** (`evidence.submit`). | A Keldyn organization. Connect it under **Integrations → Keldyn Review Bot**. |
 | Runs on | GitHub Actions | GitHub, GitLab, and Bitbucket |
 | Check | This job | **Keldyn Controls Review** |
 
@@ -323,7 +329,7 @@ If you would rather run one tool, set `secret-scan: false` and
 | `report-dir` | `.web-security` | Where `report.json`, `summary.md` and raw scanner output are written. |
 | `require-ignore-expiry` | `false` | Reject ignore entries that have no expiry date. |
 | `fail-on-error` | `true` | Fail when a scanner cannot run. Turning this off means a broken scanner is reported but does not fail the build. An upload failure follows the same switch. |
-| `keldyn-api-key` | *(empty)* | Team API key. When set, the full report is posted to Keldyn. Pass `${{ secrets.KELDYN_API_KEY }}`. The key needs `grc.write`. |
+| `keldyn-api-key` | *(empty)* | Team API key. When set, the full report is posted to Keldyn. Create it under User settings → Team → API Keys and turn on Submit automated evidence (`evidence.submit`). A key with Edit GRC records (`grc.write`) can submit scans too. Pass `${{ secrets.KELDYN_API_KEY }}`. |
 | `keldyn-api-url` | `https://api.keldyn.ai` | API origin used when `keldyn-api-key` is set. |
 
 Booleans accept `true`/`false` (also `yes`/`no`, `1`/`0`). Every input is
