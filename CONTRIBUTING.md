@@ -11,14 +11,16 @@ There is nothing to install:
 ```bash
 git clone https://github.com/keldynai/web-security.git
 cd web-security
-node --test "tests/**/*.test.mjs"
+node --test
 ```
 
-You need Node 20 or newer. Bash, `shellcheck` and `python3` with PyYAML are
+You need Node 20 or newer. Leave the paths off `node --test`: Node 20 does not
+expand a glob such as `tests/**/*.test.mjs`, and the runner discovers
+`*.test.mjs` files on its own. Bash, `shellcheck` and `python3` with PyYAML are
 useful for the other checks:
 
 ```bash
-node --test "tests/**/*.test.mjs"    # unit tests
+node --test    # unit tests
 python3 tests/check-metadata.py     # action.yml, tools.json, docs agree
 shellcheck --severity=style --external-sources \
   scripts/*.sh scripts/lib/*.sh tests/e2e/*.sh

@@ -12,16 +12,19 @@ projects, as one GitHub Action.
 
 > This Action provides a baseline set of automated security checks. It is not a
 > replacement for threat modelling, code review, penetration testing, runtime
-> protections or a mature application-security programme.
+> protections or a mature application-security programme. Use it together with
+> the [Keldyn Review Bot](https://docs.keldyn.ai/integrations/review-bot).
 
 ---
 
 ## Contents
 
 - [What it does](#what-it-does)
+- [Use it with the Keldyn Review Bot](#use-it-with-the-keldyn-review-bot)
 - [What it checks for](#what-it-checks-for)
 - [Scanners, and why these ones](#scanners-and-why-these-ones)
 - [Minimal usage](#minimal-usage)
+- [Every commit](#every-commit)
 - [Full configuration](#full-configuration)
 - [Inputs](#inputs)
 - [Outputs](#outputs)
@@ -79,6 +82,29 @@ Web Security
 
 It requires no SaaS account, no API key and no GitHub Advanced Security. It
 needs `permissions: contents: read` and nothing else.
+
+## Use it with the Keldyn Review Bot
+
+Run this Action on the same pull requests as the
+[Keldyn Review Bot](https://docs.keldyn.ai/integrations/review-bot). The Action
+is the scanner baseline. The Review Bot reviews that pull request against the
+code-level controls in your Keldyn organization and posts a **Keldyn Controls
+Review** check you can require before merge.
+
+| | This Action | Keldyn Review Bot |
+| --- | --- | --- |
+| Question | Are there known vulnerabilities, committed secrets, insecure code patterns, or infrastructure misconfiguration? | Would merging this pull request cause a code-level control to fail? |
+| Needs | A workflow file. No GitHub Advanced Security. An API key is optional and only used to create Keldyn findings. | A Keldyn organization. Connect it under **Integrations → Keldyn Review Bot**. |
+| Runs on | GitHub Actions | GitHub, GitLab, and Bitbucket |
+| Check | This job | **Keldyn Controls Review** |
+
+On GitHub, comment `@keldyn` (the App slug is `@keldyn-reviewbot`) for an
+on-demand review. Setup, repository binding, and merge gating are in the
+[Review Bot documentation](https://docs.keldyn.ai/integrations/review-bot).
+
+Keep both checks on the pull request. This Action scans with Semgrep, Trivy,
+the package-manager audit, and Gitleaks. The Review Bot judges the diff against
+your controls.
 
 ## What it checks for
 
@@ -182,6 +208,8 @@ name: Web Security
 
 on:
   pull_request:
+  schedule:
+    - cron: "0 7 * * *"
 
 permissions:
   contents: read
@@ -196,7 +224,34 @@ jobs:
       - uses: keldynai/web-security@v1
 ```
 
-That is the whole setup. Everything is autodetected.
+That is the whole setup. Everything is autodetected. The daily schedule runs
+only from the default branch, and GitHub may start it later than 07:00 UTC.
+
+## Every commit
+
+Scan each push, not only pull requests:
+
+```yaml
+name: Web Security
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: keldynai/web-security@v1
+```
+
+See [`examples/every-commit.yml`](examples/every-commit.yml). Add `pull_request`
+and `schedule` to the same workflow when you also want those runs.
 
 ## Full configuration
 
@@ -207,6 +262,8 @@ on:
   pull_request:
   push:
     branches: [master]
+  schedule:
+    - cron: "0 7 * * *"
 
 permissions:
   contents: read
@@ -227,6 +284,7 @@ jobs:
           ignore-file: .github/web-security-ignore.yml
           monorepo: true
           require-ignore-expiry: true
+          keldyn-api-key: ${{ secrets.KELDYN_API_KEY }}
 
       # Optional: keep the normalised report for triage. Needs no extra
       # permissions. `always()` so the report survives a failing scan.
@@ -262,7 +320,9 @@ jobs:
 | `sast-config` | *(none)* | Extra Semgrep configs, comma separated. E.g. `p/owasp-top-ten`. |
 | `report-dir` | `.web-security` | Where `report.json`, `summary.md` and raw scanner output are written. |
 | `require-ignore-expiry` | `false` | Reject ignore entries that have no expiry date. |
-| `fail-on-error` | `true` | Fail when a scanner cannot run. Turning this off means a broken scanner is reported but does not fail the build. |
+| `fail-on-error` | `true` | Fail when a scanner cannot run. Turning this off means a broken scanner is reported but does not fail the build. An upload failure follows the same switch. |
+| `keldyn-api-key` | *(empty)* | Team API key. When set, the full report is posted to Keldyn. Pass `${{ secrets.KELDYN_API_KEY }}`. The key needs `grc.write`. |
+| `keldyn-api-url` | `https://api.keldyn.ai` | API origin used when `keldyn-api-key` is set. |
 
 Booleans accept `true`/`false` (also `yes`/`no`, `1`/`0`). Every input is
 validated before any scanner runs, and an invalid value fails the job in
@@ -900,6 +960,8 @@ Being explicit is more useful than a long feature list:
   JavaScript/TypeScript focused; Trivy still finds dependency vulnerabilities in
   other ecosystems' lockfiles.
 - **Custom business rules.** Add them via `sast-config`.
+- **Whether merging the change would fail one of your controls.** That is the
+  [Keldyn Review Bot](https://docs.keldyn.ai/integrations/review-bot). Run both.
 - Findings below the configured severity, by design: they are reported but do
   not fail the build.
 
@@ -983,7 +1045,7 @@ the [ignore file](#ignore-file) is how you manage the transition.
 See [CONTRIBUTING.md](CONTRIBUTING.md). Run the tests with:
 
 ```bash
-node --test "tests/**/*.test.mjs"
+node --test
 ```
 
 Report vulnerabilities in the Action itself privately; see

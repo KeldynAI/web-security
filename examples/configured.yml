@@ -1,15 +1,19 @@
 # A fully configured setup: explicit thresholds, a pinned Action SHA, the
 # normalised report kept as an artifact, and the summary counts echoed.
+#
+# Use this workflow together with the Keldyn Review Bot
+# (https://docs.keldyn.ai/integrations/review-bot), which reviews the same
+# pull request against your code-level controls.
 name: Web Security
 
 on:
   pull_request:
   push:
     branches: [master]
-  # Advisory databases change without your code changing, so a scheduled run
-  # catches newly published vulnerabilities in dependencies you already have.
+  # Advisory databases change without your code changing. The schedule
+  # runs only from the default branch, and GitHub may start it late.
   schedule:
-    - cron: "0 7 * * 1"
+    - cron: "0 7 * * *"
 
 permissions:
   contents: read
@@ -38,6 +42,9 @@ jobs:
           # Every suppression must carry an expiry date, so no exception
           # becomes permanent by accident.
           require-ignore-expiry: true
+          # Optional. Omit the input and the scan stays in GitHub.
+          # The key needs grc.write. See the Review Bot docs.
+          keldyn-api-key: ${{ secrets.KELDYN_API_KEY }}
 
       # The report is written before the Action fails, so `always()` keeps it
       # available for the runs you actually care about.

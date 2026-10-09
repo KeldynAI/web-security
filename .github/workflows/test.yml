@@ -28,8 +28,11 @@ jobs:
         with:
           node-version: "20"
 
+      # Node 20 does not expand a glob argument (`tests/**/*.test.mjs` is
+      # reported as a missing file). With no paths, the runner discovers
+      # *.test.mjs itself, which works on Node 20, 22 and 24.
       - name: Run tests
-        run: node --test "tests/**/*.test.mjs"
+        run: node --test
 
   node-matrix:
     name: Unit tests (Node ${{ matrix.node }})
@@ -45,7 +48,7 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
 
-      - run: node --test "tests/**/*.test.mjs"
+      - run: node --test
 
   shell:
     name: Shell lint

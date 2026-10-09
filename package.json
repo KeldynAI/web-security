@@ -18,8 +18,8 @@
     "There is intentionally no lockfile, because there is nothing to lock."
   ],
   "scripts": {
-    "test": "node --test \"tests/**/*.test.mjs\"",
-    "test:watch": "node --test --watch \"tests/**/*.test.mjs\"",
+    "test": "node --test",
+    "test:watch": "node --test --watch",
     "lint:shell": "shellcheck --severity=style --external-sources scripts/*.sh scripts/lib/*.sh tests/e2e/*.sh"
   }
 }

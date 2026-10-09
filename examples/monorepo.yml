@@ -1,5 +1,9 @@
 # Monorepo setups.
 #
+# Use this workflow together with the Keldyn Review Bot
+# (https://docs.keldyn.ai/integrations/review-bot), which reviews the same
+# pull request against your code-level controls.
+#
 # The default (`monorepo: true`) already finds every lockfile recursively and
 # audits each package tree once, so a single job is usually enough:
 #

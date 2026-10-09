@@ -247,7 +247,7 @@ export function renderMarkdown(report) {
   }
 
   lines.push(
-    '_This Action provides a baseline set of automated security checks. It is not a replacement for threat modelling, code review, penetration testing, runtime protections or a mature application-security programme._',
+    '_This Action provides a baseline set of automated security checks. It is not a replacement for threat modelling, code review, penetration testing, runtime protections or a mature application-security programme. Use it together with the [Keldyn Review Bot](https://docs.keldyn.ai/integrations/review-bot)._',
   );
   lines.push('');
 

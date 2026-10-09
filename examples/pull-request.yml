@@ -1,12 +1,21 @@
 # Minimal pull-request setup.
 #
+# Use this workflow together with the Keldyn Review Bot
+# (https://docs.keldyn.ai/integrations/review-bot), which reviews the same
+# pull request against your code-level controls.
+#
 # Copy to .github/workflows/web-security.yml. Everything else is autodetected:
 # package managers from lockfiles, infrastructure files, and the ignore file at
 # .github/web-security-ignore.yml if one exists.
+#
+# The daily schedule runs only from the default branch. GitHub may start it
+# later than 07:00 UTC.
 name: Web Security
 
 on:
   pull_request:
+  schedule:
+    - cron: "0 7 * * *"
 
 # Least privilege: the Action needs no write access, no secrets and no
 # security-events permission, so this works for pull requests from forks.

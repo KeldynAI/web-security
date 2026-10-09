@@ -1,5 +1,5 @@
 name: "Keldyn Web Security"
-description: "SAST, dependency, vulnerability, secret and configuration scanning for web projects."
+description: "SAST, dependency, vulnerability, secret and configuration scanning for web projects. Use it with the Keldyn Review Bot."
 author: "keldynai"
 
 branding:
@@ -108,9 +108,23 @@ inputs:
   fail-on-error:
     description: >-
       Fail the run when a scanner cannot run. Leave enabled: disabling it means
-      a broken scanner is reported but does not fail the build.
+      a broken scanner is reported but does not fail the build. An upload
+      failure follows the same switch.
     required: false
     default: "true"
+
+  keldyn-api-key:
+    description: >-
+      Keldyn team API key. When set, the full report is posted and Keldyn
+      stores the scan. Pass it from a secret:
+      keldyn-api-key: ${{ secrets.KELDYN_API_KEY }}. The key needs grc.write.
+    required: false
+    default: ""
+
+  keldyn-api-url:
+    description: "Keldyn API origin used when keldyn-api-key is set."
+    required: false
+    default: "https://api.keldyn.ai"
 
 outputs:
   result:
@@ -233,3 +247,16 @@ runs:
       env:
         WEB_SECURITY_STATE: ${{ steps.preflight.outputs.state-dir }}
       run: "$GITHUB_ACTION_PATH/scripts/enforce.sh"
+
+    # The key arrives as an environment variable and is never written into
+    # the run script. An empty key skips the request.
+    - id: keldyn
+      if: ${{ always() && steps.report.outputs.report != '' }}
+      shell: bash
+      env:
+        WEB_SECURITY_STATE: ${{ steps.preflight.outputs.state-dir }}
+        WEB_SECURITY_REPORT: ${{ steps.report.outputs.report }}
+        WEB_SECURITY_KELDYN_API_KEY: ${{ inputs.keldyn-api-key }}
+        WEB_SECURITY_KELDYN_API_URL: ${{ inputs.keldyn-api-url }}
+        WEB_SECURITY_FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
+      run: node "$GITHUB_ACTION_PATH/src/keldyn-upload.mjs"

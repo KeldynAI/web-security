@@ -14,6 +14,11 @@ resolved that way are treated as breaking.
 
 ## [Unreleased]
 
+### Changed
+
+- The README, Marketplace description, and job-summary disclaimer now say to
+  run this Action together with the [Keldyn Review Bot](https://docs.keldyn.ai/integrations/review-bot).
+
 ## [1.0.0] - 2026-09-14
 
 First release.

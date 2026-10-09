@@ -54,6 +54,7 @@ function statePath(...parts) {
 // --------------------------------------------------------------------------
 
 function commandPreflight() {
+  fs.writeFileSync(statePath('started-at'), String(Date.now()), 'utf8');
   const tools = readJsonFile(TOOLS_FILE);
   const config = loadConfig(process.env);
 

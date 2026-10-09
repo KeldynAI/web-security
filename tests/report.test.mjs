@@ -555,6 +555,8 @@ test('the markdown summary renders a scanner table and a disclaimer', () => {
   assert.match(markdown, /\| Trivy \(0\.74\.0\) \|/);
   assert.match(markdown, /Actionable findings \(1\)/);
   assert.match(markdown, /not a replacement for threat modelling/);
+  assert.match(markdown, /Keldyn Review Bot/);
+  assert.match(markdown, /https:\/\/docs\.keldyn\.ai\/integrations\/review-bot/);
 });
 
 test('report.json has a stable, documented shape', () => {

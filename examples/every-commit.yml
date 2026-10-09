@@ -1,0 +1,22 @@
+# Scan on every push, including commits that are not part of a pull request.
+#
+# Copy to .github/workflows/web-security.yml. A push to any branch starts a
+# scan of that commit. Combine this with pull_request and schedule if you
+# also want the daily default-branch run from examples/pull-request.yml.
+name: Web Security
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    name: Security scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: keldynai/web-security@v1
