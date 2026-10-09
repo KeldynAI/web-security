@@ -44,7 +44,7 @@ test('the commit message is the scanned revision, and a flag-like value is ignor
 test('an empty key does not open a request', async () => {
   let called = false;
   const result = await runUpload(
-    { WEB_SECURITY_KELDYN_API_KEY: '  ' },
+    { WEB_SECURITY_INPUT_KELDYN_API_KEY: '  ' },
     { fetchImpl: async () => { called = true; } },
   );
   assert.equal(result.posted, false);
@@ -97,8 +97,8 @@ test('upload failure is reported without printing the key', async () => {
     await assert.rejects(
       () => runUpload(
         {
-          WEB_SECURITY_KELDYN_API_KEY: 'kld_secret',
-          WEB_SECURITY_KELDYN_API_URL: 'https://api.keldyn.ai',
+          WEB_SECURITY_INPUT_KELDYN_API_KEY: 'kld_secret',
+          WEB_SECURITY_INPUT_KELDYN_API_URL: 'https://api.keldyn.ai',
           WEB_SECURITY_REPORT: '/no/such/report.json',
           WEB_SECURITY_FAIL_ON_ERROR: 'true',
           GITHUB_EVENT_NAME: 'push',

@@ -96,7 +96,7 @@ function failOnErrorEnabled(value) {
 }
 
 export async function runUpload(env = process.env, options = {}) {
-  const apiKey = String(env.WEB_SECURITY_KELDYN_API_KEY || '').trim();
+  const apiKey = String(env.WEB_SECURITY_INPUT_KELDYN_API_KEY || '').trim();
   if (!apiKey) {
     return { posted: false };
   }
@@ -136,7 +136,7 @@ export async function runUpload(env = process.env, options = {}) {
       durationMs: durationMs(started, options.now),
     });
     await postScan({
-      url: env.WEB_SECURITY_KELDYN_API_URL || 'https://api.keldyn.ai',
+      url: env.WEB_SECURITY_INPUT_KELDYN_API_URL || 'https://api.keldyn.ai',
       apiKey,
       body,
       fetchImpl: options.fetchImpl,

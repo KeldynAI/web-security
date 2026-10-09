@@ -116,8 +116,8 @@ inputs:
   keldyn-api-key:
     description: >-
       Keldyn team API key. When set, the full report is posted and Keldyn
-      stores the scan. Pass it from a secret:
-      keldyn-api-key: ${{ secrets.KELDYN_API_KEY }}. The key needs grc.write.
+      stores the scan. Pass the repository secret KELDYN_API_KEY from the
+      calling workflow. The key needs grc.write.
     required: false
     default: ""
 
@@ -256,7 +256,7 @@ runs:
       env:
         WEB_SECURITY_STATE: ${{ steps.preflight.outputs.state-dir }}
         WEB_SECURITY_REPORT: ${{ steps.report.outputs.report }}
-        WEB_SECURITY_KELDYN_API_KEY: ${{ inputs.keldyn-api-key }}
-        WEB_SECURITY_KELDYN_API_URL: ${{ inputs.keldyn-api-url }}
+        WEB_SECURITY_INPUT_KELDYN_API_KEY: ${{ inputs.keldyn-api-key }}
+        WEB_SECURITY_INPUT_KELDYN_API_URL: ${{ inputs.keldyn-api-url }}
         WEB_SECURITY_FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
       run: node "$GITHUB_ACTION_PATH/src/keldyn-upload.mjs"
