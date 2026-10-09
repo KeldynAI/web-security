@@ -17,15 +17,118 @@ projects, as one GitHub Action.
 
 ---
 
+## Minimal usage
+
+```yaml
+name: Web Security
+
+on:
+  pull_request:
+  schedule:
+    - cron: "0 7 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: keldynai/web-security@v1
+        with:
+          keldyn-api-key: ${{ secrets.KELDYN_API_KEY }} # This is optional to submit scans to your keldyn workspace
+```
+
+That is the whole setup. Everything is autodetected. The daily schedule runs
+only from the default branch, and GitHub may start it later than 07:00 UTC.
+
+## Every commit
+
+Scan each push, not only pull requests:
+
+```yaml
+name: Web Security
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: keldynai/web-security@v1
+```
+
+See [`examples/every-commit.yml`](examples/every-commit.yml). Add `pull_request`
+and `schedule` to the same workflow when you also want those runs.
+
+## Full configuration
+
+```yaml
+name: Web Security
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  schedule:
+    - cron: "0 7 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: scan
+        uses: keldynai/web-security@v1
+        with:
+          path: "."
+          severity: high
+          trivy-severity: HIGH,CRITICAL
+          ignore-file: .github/web-security-ignore.yml
+          monorepo: true
+          require-ignore-expiry: true
+          keldyn-api-key: ${{ secrets.KELDYN_API_KEY }}
+
+      # Optional: keep the normalised report for triage. Needs no extra
+      # permissions. `always()` so the report survives a failing scan.
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-security-report
+          path: .web-security/
+          retention-days: 14
+
+      - if: always()
+        run: |
+          echo "result=${{ steps.scan.outputs.result }}"
+          echo "actionable=${{ steps.scan.outputs.findings }}"
+          echo "ignored=${{ steps.scan.outputs.ignored-findings }}"
+```
+
 ## Contents
 
+- [Minimal usage](#minimal-usage)
+- [Every commit](#every-commit)
+- [Full configuration](#full-configuration)
 - [What it does](#what-it-does)
 - [Use it with the Keldyn Review Bot](#use-it-with-the-keldyn-review-bot)
 - [What it checks for](#what-it-checks-for)
 - [Scanners, and why these ones](#scanners-and-why-these-ones)
-- [Minimal usage](#minimal-usage)
-- [Every commit](#every-commit)
-- [Full configuration](#full-configuration)
 - [Inputs](#inputs)
 - [Outputs](#outputs)
 - [Package-manager autodetection](#package-manager-autodetection)
@@ -200,107 +303,6 @@ Gitleaks is worth the extra binary because:
 
 If you would rather run one tool, set `secret-scan: false` and
 `trivy-scanners: vuln,misconfig,secret`.
-
-## Minimal usage
-
-```yaml
-name: Web Security
-
-on:
-  pull_request:
-  schedule:
-    - cron: "0 7 * * *"
-
-permissions:
-  contents: read
-
-jobs:
-  security:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: keldynai/web-security@v1
-```
-
-That is the whole setup. Everything is autodetected. The daily schedule runs
-only from the default branch, and GitHub may start it later than 07:00 UTC.
-
-## Every commit
-
-Scan each push, not only pull requests:
-
-```yaml
-name: Web Security
-
-on:
-  push:
-
-permissions:
-  contents: read
-
-jobs:
-  security:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: keldynai/web-security@v1
-```
-
-See [`examples/every-commit.yml`](examples/every-commit.yml). Add `pull_request`
-and `schedule` to the same workflow when you also want those runs.
-
-## Full configuration
-
-```yaml
-name: Web Security
-
-on:
-  pull_request:
-  push:
-    branches: [master]
-  schedule:
-    - cron: "0 7 * * *"
-
-permissions:
-  contents: read
-
-jobs:
-  security:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - id: scan
-        uses: keldynai/web-security@v1
-        with:
-          path: "."
-          severity: high
-          trivy-severity: HIGH,CRITICAL
-          ignore-file: .github/web-security-ignore.yml
-          monorepo: true
-          require-ignore-expiry: true
-          keldyn-api-key: ${{ secrets.KELDYN_API_KEY }}
-
-      # Optional: keep the normalised report for triage. Needs no extra
-      # permissions. `always()` so the report survives a failing scan.
-      - if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: web-security-report
-          path: .web-security/
-          retention-days: 14
-
-      - if: always()
-        run: |
-          echo "result=${{ steps.scan.outputs.result }}"
-          echo "actionable=${{ steps.scan.outputs.findings }}"
-          echo "ignored=${{ steps.scan.outputs.ignored-findings }}"
-```
 
 ## Inputs
 
